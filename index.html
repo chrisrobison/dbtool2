@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>DB Tool 2</title>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+    body {
+        margin:0;
+        padding:0;
+        font-size:14px;
+        font-family:"Roboto", cursive;
+        background-color:#333;
+    }
+    main {
+        -webkit-touch-callout: none; 
+        -webkit-user-select: none; 
+        -khtml-user-select: none; 
+        -moz-user-select: none; 
+        -ms-user-select: none; 
+        user-select: none; 
+        height:100vh;
+        width:100vw;
+    }
+    select {
+        font-size:18px;
+    }
+    a, a:visited {
+        color:#000;
+        text-decoration:none;
+    }
+    table.dbtable {
+        position:relative;
+        margin:1em 1em;
+        width:21em;
+        border:3px outset #fff;
+        box-shadow:.5em .5em .5em #0007;
+        padding: 0px;
+        border-collapse: collapse;
+        float:left;
+        overflow:hidden;
+    }
+
+    table.dbtable td {
+        padding: .5em 0px .5em .5em;
+        border-bottom:1px solid #ddd;
+        height:1.5em;
+        background-color:#eee;
+    }
+    table.dbtable.selected td {
+        background-color:#fff;
+    }
+    th { 
+        padding:.5em;
+    }
+    table.dbtable thead {
+        background-color:#001144;
+        color:#eee;
+        font-size:1.2em;
+        font-weight:bold;
+    }
+    table.dbtable.selected thead {
+        background-color:#003388;
+        color:#ffffff;
+    }
+    .type {
+        font-size:.8em;
+        color:#666;
+        width:5em;
+    }
+    .action {
+        width:2.7em;
+        overflow:hidden;
+        text-align:right;
+        border-left:1px solid #f00;
+    }
+    .field {
+        max-width:11em;
+        overflow:hidden;
+        text-overflow:ellipsis;
+    }
+    .ico_pencil::before {
+        font-family:"Wingdings";
+        content:"";
+        font-size:1.2em;
+        font-weight:bold;
+        color:#e19566;
+        text-shadow:1px 1px 0px #000;
+        padding-right:4px;
+        border: 1px solid transparent;
+    }
+    .ico_pencil:hover::before {
+        border:1px outset #fff;
+        background-color:#ddd;
+    }
+    .delField {
+        padding-right:4px;
+        color:#990000;
+        text-shadow:1px 1px 0px #000;
+    }
+    .toggle.down::before {
+        content:"▼";
+    }
+    .toggle.up::before {
+        content:"▲";
+    }
+    .actions {
+        display:none;
+        width:2.6em;
+    }
+    .toggle {
+        text-align:right;
+    }
+    tr:hover .actions {
+        display:inline-block;
+    }
+    table.dbtable td.tbl_footer {
+        text-align:right;
+        height:1em;
+        overflow:hidden;
+        padding:0;
+    }
+    .tbl_footer button {
+        background-color:#ccc;
+        border: 2px outset #fff;
+    }
+    th, td, a { cursor:default; }
+    th { text-align:left; }
+    header {
+        font-size:18px;
+        padding-top:.5em;
+        padding-left:1em;
+        background-color:#111;
+        color:#fff;
+        box-shadow: 0 .25em .25em #0009;
+        height:2em;
+    }
+</style>
+</head>
+
+<body id="home">
+<header>
+<label for='dbs'>DB:</label> <select id='dbs' name='dbs'></select>
+</header>
+<main>
+
+</main>
+<script>
+    (function() {
+        const app = {
+            storeData: function(key, value) {
+                localStorage.setItem(key, JSON.stringify(value));
+            },
+            getData: function(key) {
+                var value = localStorage.getItem(key);
+                return value && JSON.parse(value);
+            },
+            state: {
+                db: "general",
+                dragging: false,
+                offsetX: 0,
+                offsetY: 0,
+                zIndex:100,
+                tables: {}
+            },
+            init: function() {
+                app.main = $("main");
+                app.main.addEventListener("click", app.click);
+                app.main.addEventListener("mousedown", app.mousedown);
+                document.addEventListener("mouseup", app.mouseup);
+                document.addEventListener("mousemove", app.mousemove);
+
+                $("#dbs").addEventListener("change", function(e) {
+                    const newdb = this.options[this.selectedIndex].value;
+                    app.state.db = newdb;
+                    $("main").innerHTML = "";
+                    app.getTables();
+                });
+                app.getDBs(); 
+                app.getTables();
+            },
+            mousemove: function(e) {
+                
+                if (app.state.dragging) {
+                //console.log("Moving to " + (e.clientY ) + ',' + (e.clientX ));
+                //console.dir(app.state.offsetX + ',' + app.state.offsetY);
+                    app.state.dragging.style.top = (e.clientY - app.state.offsetY) + 'px';
+                    app.state.dragging.style.left = (e.clientX - app.state.offsetX) + 'px';
+                }
+            },
+            mousedown: function(e) {
+                const tgt = e.target;
+                console.dir(e);
+                app.state.zIndex++;
+
+                if (tgt.nodeName === "TH") {
+                    app.state.dragging = tgt.offsetParent;
+                    app.state.offsetX = e.layerX;
+                    app.state.offsetY = e.layerY;
+
+                } else if (tgt.nodeName === "TABLE") {
+                    app.state.dragging = tgt;
+                    app.state.offsetX = e.layerX;
+                    app.state.offsetY = e.layerY;
+
+                }
+                app.state.dragging.style.zIndex = app.state.zIndex + 1;
+                const sel = $(".dbtable.selected");
+                if (sel) sel.classList.remove("selected");
+                app.state.dragging.classList.add("selected");
+            },
+            mouseup: function(e) {
+                let obj = {"top":app.state.dragging.style.top, "left":app.state.dragging.style.left};
+                app.storeData(app.state.dragging.id, obj);
+                app.state.dragging = false;
+            },
+            click: function(e) {
+                console.dir(e);
+
+                const tgt = e.target;
+
+                if (tgt.className.match(/toggle/)) {
+                    let tname = tgt.id.replace(/^table_/, '');
+                    const st = app.state.tables[tname];
+
+                    if (tgt.className.match(/down/)) {
+                        tgt.className = 'toggle up';
+                        let tbody = tgt.offsetParent.querySelector("tbody");
+                        tbody.style.display = 'none';
+                    } else if (tgt.className.match(/up/)) {
+                        tgt.className = 'toggle down';
+                        let tbody = tgt.offsetParent.querySelector("tbody");
+                        tbody.style.display = 'table-row-group';
+                    }
+
+                }
+
+            },
+            toggle: function(tgt, state) {
+                if (!state) {
+                    if (tgt.className.match(/down/)) {
+                        tgt.className = 'toggle up';
+                        let tbody = tgt.offsetParent.querySelector("tbody");
+                        tbody.style.display = 'none';
+                    } else if (tgt.className.match(/up/)) {
+                        tgt.className = 'toggle down';
+                        let tbody = tgt.offsetParent.querySelector("tbody");
+                        tbody.style.display = 'table-row-group';
+                    }
+                    
+                } else {
+                    tgt.className = 'toggle ' + state;
+                    let tbody = tgt.offsetParent.querySelector("tbody");
+                    tbody.style.display = (state === 'up') ? "none" : "table-row-group";
+                }
+            },
+            getDBs: function() {
+                fetch("db.php?x=list_dbs").then(response=>response.json()).then(function(data) {
+                    app.dbs = data;
+                   console.dir(data); 
+                    let obj;
+                    let out = '';
+                    for (let i in app.dbs) {
+                        var sel = (app.state.db == app.dbs[i]) ? " SELECTED" : "";
+                        out += "<option value='" + app.dbs[i] + "'" + sel + ">" + app.dbs[i] + "</option>";
+                    }
+                    $("#dbs").innerHTML = out;
+                });
+            },
+            getTables: function() {
+                fetch("db.php?x=list_tables&db="+app.state.db).then(response=>response.json()).then(function(data) {
+                    app.db = data;
+                    app.drawTables(app.db.tables);
+                    
+                   console.dir(data); 
+                    let obj;
+                    for (let i in app.db.tables) {
+                        $("#table_" + i).style.position = "absolute";
+                        obj = app.getData("table_" + i);
+                        if (obj) {
+                            console.dir(obj);
+                            $("#table_" + i).style.top = obj.top;
+                            $("#table_" + i).style.left = obj.left;
+                        }
+                    }
+                    console.dir(data);
+                });
+            },
+            drawTables: function(tbls) {
+                let c = 0, r = 0;
+
+                for (var i in tbls) {
+                    let out = "<table style='left:" + (c * 22) + "em;top:" + ((r * 30) + 24) + "em;' class='dbtable' id='table_" + i + "'><thead><tr><th colspan='2'>" + i + "</th><th class='toggle down'></th></tr></thead><tbody>";
+                    c++;
+                    if (c > 4) {
+                        c = 0;
+                        r++;
+                    }
+                    for (let f in tbls[i]) {
+                        out += "<tr><td class='field' title='" + tbls[i][f].Field + "'>" + tbls[i][f].Field + "</td><td class='type'>" + tbls[i][f].Type + "</td><td class='action'><div class='actions'><a href='#' class='editField ico_pencil'></a><a href='#' class='delField'>✕</a></div></td></tr>";
+                    }
+                    out += "<tr><td colspan='3' class='tbl_footer'><button>+</button></td></tr>";
+                    out += "</table>";
+                    $("main").innerHTML += out;
+                }
+            }
+        };
+        window.app = app;
+        app.init();
+    })();
+function $(str) { return document.querySelector(str); }
+function $$(str) { return document.querySelectorAll(str); }
+
+</script>
+</body>
+</html>
